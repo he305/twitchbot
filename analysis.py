@@ -55,7 +55,7 @@ def get_bttv_local(channel):
     files = glob.glob("emotes_channels\\*.txt")
     if "emotes_channels\\{}.txt".format(channel+'_bttv') in files:
         with open("emotes_channels\\{}.txt".format(channel+'_bttv'), encoding="utf8") as f:
-            data = f.readlines()
+            data = [d.strip() for d in f.readlines()]
         return data
 
     emotes = requests.get("https://api.betterttv.net/2/channels/" + channel).json()
@@ -65,7 +65,7 @@ def get_bttv_local(channel):
 
     with open("emotes_channels\\{}.txt".format(channel+'_bttv'), 'w+', encoding="utf8") as f:
         for code in codes:
-            f.write('"{}"\n'.format(code))
+            f.write(code+'\n')
 
     return codes
 
@@ -74,7 +74,7 @@ def get_ffz_local(channel):
     files = glob.glob("emotes_channels\\*.txt")
     if "emotes_channels\\{}.txt".format(channel+'_ffz') in files:
         with open("emotes_channels\\{}.txt".format(channel+'_ffz'), encoding="utf8") as f:
-            data = f.readlines()
+            data = [d.strip() for d in f.readlines()]
         return data
 
     emotes = requests.get("https://api.frankerfacez.com/v1/room/" + channel).json()
@@ -86,8 +86,9 @@ def get_ffz_local(channel):
 
     with open("emotes_channels\\{}.txt".format(channel+'_ffz'), 'w+', encoding="utf8") as f:
         for code in codes:
-            f.write('"{}"\n'.format(code))
+            f.write(code+'\n')
 
+    print(codes)
     return codes
 
 
@@ -162,6 +163,8 @@ def main():
     emotes = []
     nicknames = []
 
+    with open('bots.txt', 'r', encoding="utf8") as f:
+        bots = [b.strip() for b in f.readlines()]
 
     for msg in data:
         if msg == '\n':
@@ -174,8 +177,13 @@ def main():
             message = data_msg[1].strip()
             time = datetime.datetime.strptime("2018-03-19 20-00-00", "%Y-%m-%d %H-%M-%S")
         else:
-            time = datetime.datetime.strptime(data_msg[0], "%Y-%m-%d %H-%M-%S")
             nickname = data_msg[1]
+
+            #Ignore bots, see bots.txt file
+            if nickname in bots:
+                continue
+
+            time = datetime.datetime.strptime(data_msg[0], "%Y-%m-%d %H-%M-%S")
             message = data_msg[2].strip()
         
         messages.append(Message(nickname, time, message))
@@ -207,7 +215,7 @@ def main():
 
     if sys.argv[2] == "percent" or sys.argv[2] == "full":
         print("Emotes percent of all words\n", "-"*20)
-        print((len(emotes)/len(words))*100)
+        print((len(emotes)/(len(words)+len(emotes)))*100)
         print("-"*20)
 
     if sys.argv[2] == "words":
@@ -216,7 +224,7 @@ def main():
         else:
             top = sys.argv[3]
 
-        print("Top {} most used words\n".format(top, "-"*20))
+        print("Top {} most used words\n{}".format(top, "-"*20))
         c = Counter(words)
         pprint.pprint(c.most_common(int(top)))
         print("-"*20)
