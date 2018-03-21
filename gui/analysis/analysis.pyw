@@ -3,54 +3,13 @@ from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showerror
 from tkinter import simpledialog
 import fileinput
-from emotes import emotes_global, emotes_bttv_global, emotes_channels
+from emotes import emotes_global, emotes_bttv_global, emotes_channels, get_bttv_local, get_ffz_local
 import os
-import requests
-import glob
 import datetime
 from collections import Counter
 from graph import get_dynamic
 
 emotes_all = []
-
-def get_bttv_local(channel):
-    files = glob.glob("emotes_channels\\*.txt")
-    if "emotes_channels\\{}.txt".format(channel+'_bttv') in files:
-        with open("emotes_channels\\{}.txt".format(channel+'_bttv'), encoding="utf8") as f:
-            data = [d.strip() for d in f.readlines()]
-        return data
-
-    emotes = requests.get("https://api.betterttv.net/2/channels/" + channel).json()
-    if not 'emotes' in emotes:
-        return [""]
-    codes = [emote['code'] for emote in emotes['emotes']]
-
-    with open("emotes_channels\\{}.txt".format(channel+'_bttv'), 'w+', encoding="utf8") as f:
-        for code in codes:
-            f.write(code+'\n')
-
-    return codes
-
-
-def get_ffz_local(channel):
-    files = glob.glob("emotes_channels\\*.txt")
-    if "emotes_channels\\{}.txt".format(channel+'_ffz') in files:
-        with open("emotes_channels\\{}.txt".format(channel+'_ffz'), encoding="utf8") as f:
-            data = [d.strip() for d in f.readlines()]
-        return data
-
-    emotes = requests.get("https://api.frankerfacez.com/v1/room/" + channel).json()
-    if not 'sets' in emotes or len(emotes['sets'][str(list(emotes['sets'].keys())[0])]['emoticons']) == 0:
-        return [""]
-
-    emotes_data = emotes['sets'][str(list(emotes['sets'].keys())[0])]['emoticons']
-    codes = [emote['name'] for emote in emotes_data]
-
-    with open("emotes_channels\\{}.txt".format(channel+'_ffz'), 'w+', encoding="utf8") as f:
-        for code in codes:
-            f.write(code+'\n')
-
-    return codes
 
 
 class Message:
@@ -106,7 +65,7 @@ class ChooseEmoteDialog(tk.Tk):
         print(emotes)
         self.list.grid(row=0, column=0, columnspan=3)
         self.scrollb = tk.Scrollbar(self, command=self.list.yview)
-        self.scrollb.grid(row=0, column=3, sticky='nsew')
+        self.scrollb.grid(row=0, column=2, sticky='nsew')
         self.list['yscrollcommand'] = self.scrollb.set
 
         self.delta_var = tk.BooleanVar()
@@ -114,7 +73,6 @@ class ChooseEmoteDialog(tk.Tk):
         self.delta_checkbox.grid(row=1, column=1, sticky=tk.W)
 
         self.button = tk.Button(self, text="Accept", command=self.show_graph).grid(row=1, column=0)
-        self.quit = tk.Button(self, text="Quit", command=self._close).grid(row=1, column=2)
 
 
     def show_graph(self):
@@ -123,9 +81,6 @@ class ChooseEmoteDialog(tk.Tk):
 
         get_dynamic(self.list.get(tk.ACTIVE), self.parent.messages, self.delta_var.get())
 
-
-    def _close(self):
-        self.destroy()
 
 
 class Output(tk.Frame):
@@ -236,14 +191,13 @@ class App(tk.Tk):
             self.emotes += msg.emotes
             self.nicknames.append(msg.nickname)
         
-
-        self.window.show_message(str(len(self.messages)) + " messages loaded", True)
+        self.window.show_message("{}\n{} messages loaded".format(self.channel, str(len(self.messages))), True)
         self.show_smiles_button['state'] = 'normal'
         self.show_words_button['state'] = 'normal'
         self.show_graph_button['state'] = 'normal'
         
     def show_smiles(self):
-        top = 20
+        top = 40
         self.window.show_message("Top {} channel emotes\n{}".format(top, "-"*20))
         c = Counter(self.emotes)
         c = c.most_common(int(top))
@@ -251,7 +205,7 @@ class App(tk.Tk):
             self.window.show_message("{} : {}".format(emote[0], emote[1]))
 
     def show_words(self):
-        top = 20
+        top = 40
         self.window.show_message("Top {} most used words\n{}".format(top, "-"*20))
         c = Counter(self.words)
         c = c.most_common(int(top))
