@@ -2,6 +2,15 @@ import cfg
 import socket
 import re
 import datetime
+import utils
+
+def stop_stream_message(channel):
+    s = socket.socket()
+    s.connect((cfg.HOST, cfg.PORT))
+    s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
+    s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
+    s.send("JOIN #{}\r\n".format(channel).encode("utf-8"))
+    utils.msg(s, "4Head", channel)
 
 
 class Bot:
@@ -9,13 +18,14 @@ class Bot:
         self.channel = channel
         self.parent = parent
         self.running = True
+        self.s = socket.socket()
 
     def read_chat(self):
-        s = socket.socket()
-        s.connect((cfg.HOST, cfg.PORT))
-        s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
-        s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
-        s.send("JOIN #{}\r\n".format(self.channel).encode("utf-8"))
+        self.s.connect((cfg.HOST, cfg.PORT))
+        self.s.settimeout(120)
+        self.s.send("PASS {}\r\n".format(cfg.PASS).encode("utf-8"))
+        self.s.send("NICK {}\r\n".format(cfg.NICK).encode("utf-8"))
+        self.s.send("JOIN #{}\r\n".format(self.channel).encode("utf-8"))
 
         chat_message = re.compile(r":?\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
 
@@ -24,9 +34,9 @@ class Bot:
         #     check_online_thread.start()
         while self.running:
             try:
-                response = s.recv(1024).decode("utf-8")
+                response = self.s.recv(1024).decode("utf-8")
                 if response == "PING :tmi.twitch.tv\r\n":
-                    s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+                    self.s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
                 else:
                     data = response.splitlines()
                     for res in data:
@@ -44,3 +54,5 @@ class Bot:
                 print(self.channel)
                 response = 0
                 print('*'*20)
+            except socket.timeout as ex:
+                print('Socket timeout at {}'.format(self.channel))

@@ -2,13 +2,13 @@ import tkinter as tk
 from tkinter.filedialog import askopenfilename 
 import threading
 from time import sleep
-from cfg import CLIENT_ID
+from cfg import CLIENT_ID, BACKUP_DEEPNESS
 import requests
 from tkinter.ttk import Notebook
 import datetime
 import shutil
 import os
-from bot import Bot
+from bot import Bot, stop_stream_message
 import re
 
 emoji_pattern = re.compile("["
@@ -16,6 +16,7 @@ emoji_pattern = re.compile("["
         u"\U0001F300-\U0001F5FF"  # symbols & pictographs
         u"\U0001F680-\U0001F6FF"  # transport & map symbols
         u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U0001F1FF-\U0001FFFF"
                            "]+", flags=re.UNICODE)
 
 class Page(tk.Frame):
@@ -31,7 +32,11 @@ class Page(tk.Frame):
         self.scrollb = tk.Scrollbar(self, command=self.text.yview)
         self.scrollb.grid(row=0, column=1, sticky='nsew')
         self.text['yscrollcommand'] = self.scrollb.set
-        
+
+        self.scroll_var = tk.BooleanVar(value=True)
+        self.scroll_checkbox = tk.Checkbutton(self, text="Scroll down", onvalue = 1, offvalue = 0, variable=self.scroll_var)
+        self.scroll_checkbox.grid(row=1, column=0, sticky=tk.W)
+
         self.bot = Bot(self.channel, self)
                 
         self.paste_stream_start(stream_data)
@@ -42,13 +47,26 @@ class Page(tk.Frame):
         self.save_thread = threading.Thread(target=self.save_messages)
         self.save_thread.start()
 
+
     def run(self):
         self.bot.read_chat()
+
+
+    def stream_finisher(self):
+        sleep(10)
+        stop_stream_message(self.channel)
+
+
 
     def close_tab(self):
         self.bot.running = False
         self.running = False
+
+        # self.stream_finisher_thread = threading.Thread(target=self.stream_finisher)
+        # self.stream_finisher_thread.start()
+
         self.bot_thread.join()
+        print("{} bot stopped".format(self.channel))
         self.save_thread.join()
         self.destroy()
 
@@ -63,6 +81,12 @@ class Page(tk.Frame):
             with open("channels/" + self.channel +'.txt', 'r+', encoding='utf8') as fp:
                 lines = fp.readlines()
                 if message.strip() != lines[0].strip():
+                    
+                    i = BACKUP_DEEPNESS
+                    while i >= 0:
+                        self.make_backup(i)
+                        i -= 1
+
                     if os.path.isfile("channels/" + self.channel +'_old.txt'): 
                         shutil.copy2("channels/" + self.channel +'_old.txt', "channels/" + self.channel + "_old_old.txt")
                     shutil.copy2("channels/" + self.channel +'.txt', "channels/" + self.channel + "_old.txt")
@@ -78,11 +102,13 @@ class Page(tk.Frame):
     def print_message(self, message):
         try:
             self.text.insert(tk.END, message + '\n')
-            self.text.see(tk.END)
+            if self.scroll_var.get():
+                self.text.see(tk.END)
         except Exception:
             try:
                 self.text.insert(tk.END, emoji_pattern.sub(r'', message) + '\n')
-            except Exception:
+            except Exception as ex:
+                print(ex)
                 print("Not emoji, but exception anyway")
 
     def save(self):
@@ -93,8 +119,9 @@ class Page(tk.Frame):
                 except Exception as ex:
                     print(msg + " CAN'T BE WRITTEN")
                     print(ex)
-                    
-        print("{}:{} SAVED {} MESSAGES".format(datetime.datetime.now().strftime('%H:%M:%S'), self.channel, len(self.messages)))
+        self.print_message('-'*10)
+        self.print_message("{}: SAVED {} MESSAGES".format(datetime.datetime.now().strftime('%H:%M:%S'), len(self.messages)))
+        self.print_message('-'*10)
 
 
     def save_messages(self):
@@ -104,6 +131,10 @@ class Page(tk.Frame):
                 self.messages = []
 
             sleep(60)
+
+    def make_backup(self, current):
+        if os.path.isfile("channels/{}{}.txt".format(self.channel, '_old'*current)): 
+            shutil.copy2("channels/{}{}.txt".format(self.channel, '_old'*current), "channels/{}{}.txt".format(self.channel, '_old'*(current+1)))
 
 
 class App(tk.Tk):
@@ -119,11 +150,15 @@ class App(tk.Tk):
             rows += 1
         
         self.load_file_button = tk.Button(self, text="Open streamers file",command=self.load_file).grid(row=0, column=0)
-        
+
         self.streamers_label = tk.Label(self)
         self.streamers_label.grid(row=1, column=0)
         self.overwatch_thread = threading.Thread(target=self.overwatch)
         self.overwatch_thread.daemon = True
+
+        self.update_status = tk.Label(self)
+        self.update_status.grid(row=2, column=0)
+
 
         self.frames = Notebook(self)
         self.frames.grid(row=0, column=1, columnspan=150, rowspan=100, sticky='NESW')
@@ -141,6 +176,12 @@ class App(tk.Tk):
         with open(fname, 'r', encoding="utf8") as f:
             self.streamers = [s.strip() for s in f.readlines()]
         streamers_str = '\n'.join(self.streamers)
+
+        try:
+            os.mkdir('channels')
+        except FileExistsError:
+            print('Folder already exists')
+
         self.streamers_label['text'] = "Overwatched streams:\n" + streamers_str
         self.title('Status: working')
         self.overwatch_thread.start()
@@ -164,7 +205,7 @@ class App(tk.Tk):
 
                 if not stream_data['data'] and '_live' in streamer:
                     
-                    
+                    print("{} finished streaming, starting process stop".format(streamer.replace('_live', '')))
                     for i, p in enumerate(tabs):
                         if p.channel == streamer.replace('_live', ''):
                             self.frames.forget(i)
@@ -172,6 +213,7 @@ class App(tk.Tk):
                             p.close_tab()
                             break
                     tabs.remove(finded)
+
                     print("{} finished streaming".format(streamer.replace('_live', '')))
                     self.streamers[self.streamers.index(streamer)] = streamer.replace('_live', '')
 
@@ -186,7 +228,11 @@ class App(tk.Tk):
 
                 streamers_str = '\n'.join(self.streamers)
                 self.streamers_label['text'] = "Overwatched streams:\n" + streamers_str
+            
+            print("Last check: {}".format(datetime.datetime.now().strftime('%H:%M:%S')))
+            self.update_status['text'] = "Last check: {}".format(datetime.datetime.now().strftime('%H:%M:%S'))
             sleep(60)
+            
 
 if __name__ == "__main__":
     App().mainloop()

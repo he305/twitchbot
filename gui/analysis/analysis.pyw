@@ -203,6 +203,9 @@ class App(tk.Tk):
         c = c.most_common(int(top))
         for emote in c[:top]:
             self.window.show_message("{} : {}".format(emote[0], emote[1]))
+        
+        self.window.show_message("{}\n{}".format("Emotes percent of all words", "-"*20))
+        self.window.show_message("{}\n{}".format((len(self.emotes)/(len(self.words)+len(self.emotes)))*100, '-'*20))
 
     def show_words(self):
         top = 40

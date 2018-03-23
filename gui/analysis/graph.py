@@ -11,7 +11,7 @@ def get_dynamic(emote, messages, graph_type=True):
     start_time = messages[0].time
     prev_count = 0
     i = 0
-    interval = math.floor(len(messages)/200)
+    interval = math.floor(len(messages)/300)
     for msg in sorted_messages:
         emote_sum += msg.count_emote(emote)
         i += 1
