@@ -34,7 +34,7 @@ class Bot:
         #     check_online_thread.start()
         while self.running:
             try:
-                response = self.s.recv(1024).decode("utf-8")
+                response = self.s.recv(2048).decode("utf-8")
                 if response == "PING :tmi.twitch.tv\r\n":
                     self.s.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
                 else:

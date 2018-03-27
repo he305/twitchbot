@@ -60,6 +60,7 @@ class ChooseEmoteDialog(tk.Tk):
         self.title("Choose emote")
         self.parent = parent
         self.list = tk.Listbox(self)
+        self.list.insert(tk.END, "viewers")
         for msg in emotes:
             self.list.insert(tk.END, msg)
         print(emotes)
@@ -141,7 +142,7 @@ class App(tk.Tk):
     def load_file(self):
         fname = askopenfilename(filetypes=(("Text File", "*.txt"),("All Files","*.*")))
         if fname:
-            self.channel = os.path.basename(fname).replace('_old', '').replace('.txt', '')
+            self.channel = os.path.basename(fname).split('_')[0].replace('.txt', '')
             self.window.show_message("Loading messages, please wait...", True)
             self.load_data(fname)
             return
@@ -168,21 +169,21 @@ class App(tk.Tk):
             if msg == '\n':
                 continue
 
-            ###TEMPORARY
             data_msg = msg.split(':')
-            if len(data_msg) == 2 or len(data_msg[0]) != 19:
-                nickname = data_msg[0]
-                message = data_msg[1].strip()
-                time = datetime.datetime.strptime("2018-03-19 20-00-00", "%Y-%m-%d %H-%M-%S")
-            else:
-                nickname = data_msg[1]
+            # if len(data_msg) == 2 or len(data_msg[0]) != 19:
+            #     print(data_msg)
+            #     nickname = data_msg[0]
+            #     message = data_msg[1].strip()
+            #     time = datetime.datetime.strptime("2018-03-19 20-00-00", "%Y-%m-%d %H-%M-%S")
+            # else:
+            nickname = data_msg[1]
 
-                #Ignore bots, see bots.txt file
-                if nickname in bots:
-                    continue
+            #Ignore bots, see bots.txt file
+            if nickname in bots:
+                continue
 
-                time = datetime.datetime.strptime(data_msg[0], "%Y-%m-%d %H-%M-%S")
-                message = data_msg[2].strip()
+            time = datetime.datetime.strptime(data_msg[0], "%Y-%m-%d %H-%M-%S")
+            message = data_msg[2].strip()
             
             self.messages.append(Message(nickname, time, message, self.channel))
 

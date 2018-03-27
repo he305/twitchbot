@@ -25,17 +25,20 @@ class Page(tk.Frame):
         self.parent = parent
         self.channel = channel
         self.text = tk.Text(self)
-        self.text.grid(row=0, column=0, sticky='NESW')
+        self.text.grid(row=0, column=0, columnspan=2, sticky='NESW')
         self.running = True
         self.messages = []
 
         self.scrollb = tk.Scrollbar(self, command=self.text.yview)
-        self.scrollb.grid(row=0, column=1, sticky='nsew')
+        self.scrollb.grid(row=0, column=2, sticky='nsew')
         self.text['yscrollcommand'] = self.scrollb.set
+
+        self.viewers = tk.Label(self)
+        self.viewers.grid(row=1, column=0, sticky=tk.W)
 
         self.scroll_var = tk.BooleanVar(value=True)
         self.scroll_checkbox = tk.Checkbutton(self, text="Scroll down", onvalue = 1, offvalue = 0, variable=self.scroll_var)
-        self.scroll_checkbox.grid(row=1, column=0, sticky=tk.W)
+        self.scroll_checkbox.grid(row=1, column=1, sticky=tk.E)
 
         self.bot = Bot(self.channel, self)
                 
@@ -52,50 +55,29 @@ class Page(tk.Frame):
         self.bot.read_chat()
 
 
-    def stream_finisher(self):
-        sleep(10)
-        stop_stream_message(self.channel)
-
-
-
     def close_tab(self):
         self.bot.running = False
         self.running = False
-
-        # self.stream_finisher_thread = threading.Thread(target=self.stream_finisher)
-        # self.stream_finisher_thread.start()
-
         self.bot_thread.join()
         print("{} bot stopped".format(self.channel))
         self.save_thread.join()
         self.destroy()
 
+
     def paste_stream_start(self, stream_data):
         d = datetime.datetime.strptime(stream_data[0]['started_at'], '%Y-%m-%dT%H:%M:%SZ')
         d = d.replace(tzinfo=datetime.timezone.utc).astimezone(tz=None)
-        time = d.strftime("%Y-%m-%d %H-%M-%S")
-
-        message = "{0}:{1}: {2}".format(time, "he305bot", "Stream started")
+        self.time = d.strftime("%Y-%m-%d %H-%M-%S")
+        
+        message = "{0}:{1}: {2}".format(self.time, "he305bot", "Stream started")
         
         try:
-            with open("channels/" + self.channel +'.txt', 'r+', encoding='utf8') as fp:
-                lines = fp.readlines()
-                if message.strip() != lines[0].strip():
-                    
-                    i = BACKUP_DEEPNESS
-                    while i >= 0:
-                        self.make_backup(i)
-                        i -= 1
+            os.mkdir('channels/' + self.channel)
+        except FileExistsError:
+            print('Folder {} already exists'.format(self.channel))
 
-                    if os.path.isfile("channels/" + self.channel +'_old.txt'): 
-                        shutil.copy2("channels/" + self.channel +'_old.txt', "channels/" + self.channel + "_old_old.txt")
-                    shutil.copy2("channels/" + self.channel +'.txt', "channels/" + self.channel + "_old.txt")
-                    fp.seek(0)
-                    fp.truncate()
-                    fp.write(message)
-                    
-        except IOError:
-            with open("channels/" + self.channel +'.txt', 'w', encoding='utf8') as fp:
+        if not os.path.isfile("channels/{}/{}_{}.txt".format(self.channel, self.channel, self.time)):    
+            with open("channels/{}/{}_{}.txt".format(self.channel, self.channel, self.time), 'w', encoding='utf8') as fp:
                 fp.write(message)
     
 
@@ -112,13 +94,15 @@ class Page(tk.Frame):
                 print("Not emoji, but exception anyway")
 
     def save(self):
-        with open("channels/" + self.channel +'.txt', 'a', encoding='utf8') as fp:
+        with open("channels/{}/{}_{}.txt".format(self.channel, self.channel, self.time), 'a', encoding='utf8') as fp:
             for msg in self.messages:
                 try:
                     fp.write('\n'+msg)
                 except Exception as ex:
                     print(msg + " CAN'T BE WRITTEN")
                     print(ex)
+
+            fp.write("\n{}:{}: {}".format(datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S"), "Viewer_counter", self.viewers['text'].split(": ")[1]))
         self.print_message('-'*10)
         self.print_message("{}: SAVED {} MESSAGES".format(datetime.datetime.now().strftime('%H:%M:%S'), len(self.messages)))
         self.print_message('-'*10)
@@ -132,9 +116,9 @@ class Page(tk.Frame):
 
             sleep(60)
 
-    def make_backup(self, current):
-        if os.path.isfile("channels/{}{}.txt".format(self.channel, '_old'*current)): 
-            shutil.copy2("channels/{}{}.txt".format(self.channel, '_old'*current), "channels/{}{}.txt".format(self.channel, '_old'*(current+1)))
+    # def make_backup(self, current):
+    #     if os.path.isfile("channels/{}/{}{}.txt".format(self.channel, self.channel, '_old'*current)): 
+    #         shutil.copy2("channels/{}/{}{}.txt".format(self.channel, self.channel, '_old'*current), "channels/{}/{}{}.txt".format(self.channel, self.channel, '_old'*(current+1)))
 
 
 class App(tk.Tk):
@@ -221,6 +205,7 @@ class App(tk.Tk):
                     print("{} stream is starting".format(streamer))
 
                     p = Page(streamer, stream_data['data'], self.frames)
+                    p.viewers['text'] = "Viewers: {}".format(stream_data['data'][0]['viewer_count'])
                     self.frames.add(p, text=streamer.replace('_live', ''))
                     tabs.append(p)
 
@@ -228,6 +213,13 @@ class App(tk.Tk):
 
                 streamers_str = '\n'.join(self.streamers)
                 self.streamers_label['text'] = "Overwatched streams:\n" + streamers_str
+
+                if stream_data['data'] and '_live' in streamer:
+                    for i, p in enumerate(tabs):
+                        if p.channel == streamer.replace('_live', ''):
+                            p.viewers['text'] = "Viewers: {}".format(stream_data['data'][0]['viewer_count'])
+                            break
+                    
             
             print("Last check: {}".format(datetime.datetime.now().strftime('%H:%M:%S')))
             self.update_status['text'] = "Last check: {}".format(datetime.datetime.now().strftime('%H:%M:%S'))

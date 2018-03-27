@@ -13,7 +13,9 @@ emotes_channels = [
     'lirik',
     'forsen',
     'mob',
-    'nuke'
+    'nuke',
+    'wlg',
+    'segall'
 ]
 
 def get_bttv_local(channel):
