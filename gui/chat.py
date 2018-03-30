@@ -6,7 +6,7 @@ from cfg import CLIENT_ID, BACKUP_DEEPNESS
 import requests
 from tkinter.ttk import Notebook
 import datetime
-import shutil
+import sys
 import os
 from bot import Bot, stop_stream_message
 import re
@@ -50,10 +50,8 @@ class Page(tk.Frame):
         self.save_thread = threading.Thread(target=self.save_messages)
         self.save_thread.start()
 
-
     def run(self):
         self.bot.read_chat()
-
 
     def close_tab(self):
         self.bot.running = False
@@ -63,12 +61,11 @@ class Page(tk.Frame):
         self.save_thread.join()
         self.destroy()
 
-
     def paste_stream_start(self, stream_data):
         d = datetime.datetime.strptime(stream_data[0]['started_at'], '%Y-%m-%dT%H:%M:%SZ')
         d = d.replace(tzinfo=datetime.timezone.utc).astimezone(tz=None)
         self.time = d.strftime("%Y-%m-%d %H-%M-%S")
-        
+
         message = "{0}:{1}: {2}".format(self.time, "he305bot", "Stream started")
         
         try:
@@ -79,7 +76,6 @@ class Page(tk.Frame):
         if not os.path.isfile("channels/{}/{}_{}.txt".format(self.channel, self.channel, self.time)):    
             with open("channels/{}/{}_{}.txt".format(self.channel, self.channel, self.time), 'w', encoding='utf8') as fp:
                 fp.write(message)
-    
 
     def print_message(self, message):
         try:
@@ -107,7 +103,6 @@ class Page(tk.Frame):
         self.print_message("{}: SAVED {} MESSAGES".format(datetime.datetime.now().strftime('%H:%M:%S'), len(self.messages)))
         self.print_message('-'*10)
 
-
     def save_messages(self):
         while self.running:
             if len(self.messages) != 0:
@@ -124,6 +119,7 @@ class Page(tk.Frame):
 class App(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
+        self.streamers = []
         self.title("Status: waiting")
         self.geometry('900x500')
         self.tk.call('encoding', 'system', 'utf-8')
@@ -143,18 +139,18 @@ class App(tk.Tk):
         self.update_status = tk.Label(self)
         self.update_status.grid(row=2, column=0)
 
-
         self.frames = Notebook(self)
         self.frames.grid(row=0, column=1, columnspan=150, rowspan=100, sticky='NESW')
         self.pages = []
 
+        if os.path.isfile('streamers.txt'):
+            self.load_data('streamers.txt')
 
     def load_file(self):
-        fname = askopenfilename(filetypes=(("Text File", "*.txt"),("All Files","*.*")))
+        fname = askopenfilename(filetypes=(("Text File", "*.txt"), ("All Files", "*.*")))
         if fname:
             self.load_data(fname)
             return
-
 
     def load_data(self, fname):
         with open(fname, 'r', encoding="utf8") as f:
@@ -170,14 +166,12 @@ class App(tk.Tk):
         self.title('Status: working')
         self.overwatch_thread.start()
 
-
     def overwatch(self):
         
         headers = {
-            'Client-ID' : CLIENT_ID,
-            'Accept' : 'application/vnd.twitchtv.v5+json'
+            'Client-ID': CLIENT_ID,
+            'Accept': 'application/vnd.twitchtv.v5+json'
         }
-
 
         tabs = []
         while True:
@@ -219,7 +213,6 @@ class App(tk.Tk):
                         if p.channel == streamer.replace('_live', ''):
                             p.viewers['text'] = "Viewers: {}".format(stream_data['data'][0]['viewer_count'])
                             break
-                    
             
             print("Last check: {}".format(datetime.datetime.now().strftime('%H:%M:%S')))
             self.update_status['text'] = "Last check: {}".format(datetime.datetime.now().strftime('%H:%M:%S'))
@@ -228,3 +221,4 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     App().mainloop()
+

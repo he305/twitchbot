@@ -4,6 +4,7 @@ import re
 import datetime
 import utils
 
+
 def stop_stream_message(channel):
     s = socket.socket()
     s.connect((cfg.HOST, cfg.PORT))
@@ -56,3 +57,4 @@ class Bot:
                 print('*'*20)
             except socket.timeout as ex:
                 print('Socket timeout at {}'.format(self.channel))
+

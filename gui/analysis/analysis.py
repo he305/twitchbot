@@ -1,8 +1,5 @@
 import tkinter as tk
 from tkinter.filedialog import askopenfilename
-from tkinter.messagebox import showerror
-from tkinter import simpledialog
-import fileinput
 from emotes import emotes_global, emotes_bttv_global, emotes_channels, get_bttv_local, get_ffz_local
 import os
 import datetime
@@ -18,13 +15,14 @@ class Message:
         self.time = time
         self.message = message
         self.channel = channel
+        self.emotes = []
+        self.words = []
         self.split_message()
     
     def split_message(self):
         self.words = self.message.split()
 
         global emotes_all
-        self.emotes = []
         for word in self.words:
             if word in emotes_all:
                 self.emotes.append(word)
@@ -40,30 +38,25 @@ class Message:
         while "@" +  self.channel in self.words:
             self.words.remove("@" + self.channel)
 
-
     def __lt__(self, other):
          return self.time < other.time
 
-
     def __str__(self):
         return "{}:{}".format(self.nickname, self.message)
-
 
     def count_emote(self, emote):
         return self.emotes.count(emote)
 
 
-
 class ChooseEmoteDialog(tk.Tk):
     def __init__(self, emotes, parent):
-        tk.Toplevel.__init__(self, parent)
+        tk.Tk.__init__(self)
         self.title("Choose emote")
         self.parent = parent
         self.list = tk.Listbox(self)
         self.list.insert(tk.END, "viewers")
         for msg in emotes:
             self.list.insert(tk.END, msg)
-        print(emotes)
         self.list.grid(row=0, column=0, columnspan=3)
         self.scrollb = tk.Scrollbar(self, command=self.list.yview)
         self.scrollb.grid(row=0, column=2, sticky='nsew')
@@ -75,7 +68,6 @@ class ChooseEmoteDialog(tk.Tk):
 
         self.button = tk.Button(self, text="Accept", command=self.show_graph).grid(row=1, column=0)
 
-
     def show_graph(self):
         if not self.list.get(tk.ACTIVE):
             return
@@ -83,34 +75,28 @@ class ChooseEmoteDialog(tk.Tk):
         get_dynamic(self.list.get(tk.ACTIVE), self.parent.messages, self.delta_var.get())
 
 
-
 class Output(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self)
         self.parent = parent
-        self.widgets()
-
-    def widgets(self):
         self.text = tk.Text(self)
         self.text.grid(row=0, column=0)
+        self.clear_button = tk.Button(self, text="Clear text", command=self.clear_text).grid(row=1, column=0, sticky=tk.E)
+        self.scrollb = tk.Scrollbar(self, command=self.text.yview)
 
         self.text.insert(tk.END, "Welcome to twich messages analyzer\n")
         self.text.insert(tk.END, "Open txt file using button at the left, format is:\n")
         self.text.insert(tk.END, "time:login:message\n")
         self.text.insert(tk.END, "Compatibility with other bots rather than he305bot is not promised\n")
 
-
-        self.scrollb = tk.Scrollbar(self, command=self.text.yview)
         self.scrollb.grid(row=0, column=1, sticky='nsew')
         self.text['yscrollcommand'] = self.scrollb.set
-        self.clear_button = tk.Button(self, text="Clear text", command=self.clear_text).grid(row=1, column=0, sticky=tk.E)
 
     def show_message(self, message, clear=False):
         if clear:
             self.clear_text()
         self.text.insert(tk.END, message)
         self.text.insert(tk.END, '\n')
-
 
     def clear_text(self):
         self.text.delete('1.0', tk.END)
@@ -138,7 +124,6 @@ class App(tk.Tk):
         self.window = Output(self)
         self.window.grid(row=1, column=3, sticky=tk.E)
 
-
     def load_file(self):
         fname = askopenfilename(filetypes=(("Text File", "*.txt"),("All Files","*.*")))
         if fname:
@@ -154,8 +139,7 @@ class App(tk.Tk):
         self.window.text.delete('1.0', tk.END)
 
         global emotes_all    
-        emotes_all = emotes_global + emotes_bttv_global + get_bttv_local(self.channel) + get_ffz_local(self.channel) 
-        print(get_bttv_local(self.channel)) 
+        emotes_all = emotes_global + emotes_bttv_global + get_bttv_local(self.channel) + get_ffz_local(self.channel)
 
         self.messages = []
         self.words = []
@@ -216,7 +200,6 @@ class App(tk.Tk):
         for word in c[:top]:
             self.window.show_message("{} : {}".format(word[0], word[1]))
 
-
     def show_graph(self):
         top = 20
         c = Counter(self.emotes)
@@ -226,6 +209,7 @@ class App(tk.Tk):
             emote_list.append(emote[0])
 
         choose = ChooseEmoteDialog(emote_list, self)
-        
+
+
 if __name__ == "__main__":
     App().mainloop()
